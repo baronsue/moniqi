@@ -567,6 +567,58 @@
     const GREETING_REPLY = "你好啊闺蜜～";
     const WHO_KEYWORDS = ["你是谁", "你是誰", "who are you", "你叫什么", "你叫啥"];
     const WHO_REPLY = "我是阳光开朗大男孩";
+    const INSULT_KEYWORDS = [
+      "傻",
+      "笨",
+      "蠢",
+      "垃圾",
+      "废物",
+      "廢物",
+      "白痴",
+      "智障",
+      "滚",
+      "滾",
+      "妈的",
+      "媽的",
+      "狗屁",
+      "狗屎",
+      "弱智",
+      "脑残",
+      "腦殘",
+      "蠢货",
+      "蠢貨",
+      "二货",
+      "贱人",
+      "賤人",
+      "sb",
+      "s.b",
+      "shabi",
+      "sha bi",
+      "傻逼",
+      "傻b",
+      "傻比",
+      "傻bi",
+      "煞笔",
+      "煞比",
+      "沙雕",
+      "傻叉",
+      "傻瓜",
+      "脑子有坑",
+      "有病",
+      "臭",
+      "糟糕",
+      "废柴",
+      "废物点心",
+      "王八蛋",
+      "蠢蛋",
+      "idiot",
+      "stupid",
+      "fool",
+      "fucking",
+      "fuck",
+      "shit",
+      "trash"
+    ];
 
     const ORB_COUNT = 12;
     const SHARD_COUNT = 24;
@@ -648,6 +700,19 @@
       return WHO_KEYWORDS.some(keyword => normalized.includes(keyword));
     }
 
+    function hasInsult(text) {
+      const normalized = text.toLowerCase();
+      const compact = normalized.replace(/\s+/g, "");
+      return INSULT_KEYWORDS.some(keyword => {
+        const keywordNormalized = keyword.toLowerCase();
+        const keywordCompact = keywordNormalized.replace(/\s+/g, "");
+        return normalized.includes(keywordNormalized) || compact.includes(keywordCompact);
+      });
+    }
+
+    function isScumbag(text) {
+      return text.includes("渣男");
+    }
     function appendMessage(text, sender = "user") {
       const article = document.createElement("article");
       article.classList.add("message", sender);
@@ -712,13 +777,17 @@
 
       const delay = 500 + Math.random() * 800;
       setTimeout(() => {
-        const reply = hasWhoQuestion(message)
-          ? WHO_REPLY
-          : message.includes(SPECIAL_TRIGGER)
-            ? SPECIAL_REPLY
-            : hasGreeting(message)
-              ? GREETING_REPLY
-              : FIXED_REPLY;
+        const reply = isScumbag(message)
+          ? "诡秘，我真不是，我法语好啊"
+          : hasInsult(message)
+            ? message
+            : hasWhoQuestion(message)
+              ? WHO_REPLY
+              : message.includes(SPECIAL_TRIGGER)
+                ? SPECIAL_REPLY
+                : hasGreeting(message)
+                  ? GREETING_REPLY
+                  : FIXED_REPLY;
         appendMessage(reply, "bot");
       }, delay);
     });
