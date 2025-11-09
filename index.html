@@ -619,6 +619,34 @@
       "shit",
       "trash"
     ];
+    const DEFENSE_PAGE_TEXT = `骂人宝典
+
+😤火力全开 🙂口吐莲花 
+
+上一条 骂爹模式 复制 
+
+⚠️本宝典仅限于对方先开始语言攻击时使用⚠️
+⚠️请不要主动攻击别人⚠️
+
+© 2023-2024 CAONIMA.DE All Rights Reserved
+联系邮箱: b@bbb.bb`;
+    const DEFENSE_QUOTES = [
+      `你说“都是第一次做人，我凭什么让着你。”，但是你不是第一次做人。你压根就不是人。`,
+      `你干嘛用屁股挡住脸啊！🤔`,
+      `我国那么多兵器你不学，学剑。上剑不学学下剑，下剑招式那么多你要学醉剑。剑铁你不学学银剑！终于你达到了人剑合一的境界那就是剑人`,
+      `你真是上帝造人的草稿。`,
+      `我真的很想帮你治疗，但我是一名家庭医生，而你是一个孤儿。`,
+      `21世纪素质教育和扫盲还没扫到你？`,
+      `你就像那美羊羊，三千集找不到娘`,
+      `上帝把智慧洒满人间，就你打了个伞`,
+      `刚好，我QQ农场缺条🐶，我看你不错今天下午就来上班吧`,
+      `一般骂人说人都是人模狗样，但是到你得去掉“人模”。`,
+      `来给我自拍一张 我看看你的全家福`,
+      `你长的脑袋只是为了显高`,
+      `敦煌来的吗？壁画那么多。`,
+      `你是ETC吗 自动抬杠`,
+      `户口本上只有你一个人真的是太幸运了 不会拖累这么多无辜的人 我也为无辜的空气感到痛苦`
+    ];
 
     const ORB_COUNT = 12;
     const SHARD_COUNT = 24;
@@ -713,6 +741,12 @@
     function isScumbag(text) {
       return text.includes("渣男");
     }
+
+    function getDefenseReply(message) {
+      const candidates = [message, DEFENSE_PAGE_TEXT, ...DEFENSE_QUOTES];
+      const index = Math.floor(Math.random() * candidates.length);
+      return candidates[index];
+    }
     function appendMessage(text, sender = "user") {
       const article = document.createElement("article");
       article.classList.add("message", sender);
@@ -780,7 +814,7 @@
         const reply = isScumbag(message)
           ? "诡秘，我真不是，我是法语好的"
           : hasInsult(message)
-            ? message
+            ? getDefenseReply(message)
             : hasWhoQuestion(message)
               ? WHO_REPLY
               : message.includes(SPECIAL_TRIGGER)
