@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neon Chat Reactor</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=ZCOOL+KuaiLe&display=swap");
+
+    :root {
+      --primary: #7f5fff;
+      --accent: #18ffff;
+      --bg-start: #050819;
+      --bg-end: #090221;
+      --glass: rgba(15, 18, 45, 0.6);
+      --user-bubble: rgba(127, 95, 255, 0.28);
+      --bot-bubble: rgba(24, 255, 255, 0.26);
+      --glow-size: 0 0 18px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: "Orbitron", "ZCOOL KuaiLe", "Noto Sans SC", sans-serif;
+      background: radial-gradient(circle at 20% 20%, rgba(34, 0, 85, 0.8), transparent 60%),
+                  radial-gradient(circle at 80% 20%, rgba(0, 119, 179, 0.65), transparent 55%),
+                  linear-gradient(-45deg, var(--bg-start), var(--bg-end));
+      background-size: 200% 200%;
+      color: #f2f5ff;
+      overflow: hidden;
+      animation: backgroundPulse 12s ease infinite;
+    }
+
+    @keyframes backgroundPulse {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    canvas#particleCanvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+
+    .aurora {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: conic-gradient(from 180deg at 50% 50%, rgba(127, 95, 255, 0.08), rgba(24, 255, 255, 0.08), rgba(255, 0, 128, 0.08), rgba(127, 95, 255, 0.08));
+      filter: blur(90px);
+      transform: scale(1.4);
+      animation: auroraSpin 18s linear infinite;
+      z-index: 1;
+    }
+
+    @keyframes auroraSpin {
+      from { transform: scale(1.4) rotate(0deg); }
+      to { transform: scale(1.4) rotate(360deg); }
+    }
+
+    main {
+      position: relative;
+      z-index: 2;
+      width: min(960px, 92vw);
+      height: min(680px, 85vh);
+      padding: 24px 28px 30px;
+      border-radius: 28px;
+      background: var(--glass);
+      border: 1px solid rgba(120, 126, 255, 0.3);
+      box-shadow: 0 30px 60px rgba(10, 10, 40, 0.6), inset 0 0 50px rgba(120, 126, 255, 0.12);
+      backdrop-filter: blur(14px) saturate(160%);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      overflow: hidden;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+    }
+
+    header h1 {
+      font-size: clamp(1.6rem, 2vw + 1rem, 2.4rem);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #ffffff;
+      text-shadow: var(--glow-size) rgba(127, 95, 255, 0.8), 0 0 38px rgba(24, 255, 255, 0.65);
+    }
+
+    header p {
+      font-size: 0.82rem;
+      letter-spacing: 0.36em;
+      color: rgba(215, 220, 255, 0.68);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(24, 255, 255, 0.16);
+      color: #b5f6ff;
+      font-size: 0.74rem;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      box-shadow: 0 0 16px rgba(24, 255, 255, 0.4);
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: linear-gradient(120deg, #18ffff, #7affff);
+      animation: statusPulse 1.4s ease-in-out infinite;
+    }
+
+    @keyframes statusPulse {
+      0%, 100% { transform: scale(0.9); opacity: 0.6; }
+      50% { transform: scale(1.25); opacity: 1; }
+    }
+
+    .chat-window {
+      position: relative;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 14px 4px 14px 4px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(120, 126, 255, 0.44) transparent;
+    }
+
+    .chat-window::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .chat-window::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .chat-window::-webkit-scrollbar-thumb {
+      background: linear-gradient(170deg, rgba(127, 95, 255, 0.66), rgba(24, 255, 255, 0.66));
+      border-radius: 99px;
+    }
+
+    .message {
+      display: grid;
+      grid-template-columns: 58px 1fr;
+      align-items: flex-start;
+      gap: 12px;
+      opacity: 0;
+      transform: translateY(40px) scale(0.96);
+      animation: messagePop 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+    }
+
+    .message.user {
+      grid-template-columns: 1fr 58px;
+      text-align: right;
+    }
+
+    .avatar {
+      width: 58px;
+      height: 58px;
+      border-radius: 20px;
+      background: linear-gradient(120deg, rgba(127, 95, 255, 0.6), rgba(24, 255, 255, 0.6));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      letter-spacing: 0.28em;
+      color: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 0 22px rgba(127, 95, 255, 0.6);
+    }
+
+    .message.user .avatar {
+      order: 2;
+      background: linear-gradient(120deg, rgba(255, 0, 153, 0.7), rgba(127, 95, 255, 0.7));
+      box-shadow: 0 0 22px rgba(255, 0, 153, 0.4);
+    }
+
+    .bubble {
+      padding: 18px 22px;
+      border-radius: 24px;
+      position: relative;
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      line-height: 1.6;
+      font-size: 0.98rem;
+      text-align: left;
+      letter-spacing: 0.06em;
+    }
+
+    .message.user .bubble {
+      background: var(--user-bubble);
+      text-align: right;
+      box-shadow: 0 0 14px rgba(255, 0, 153, 0.35);
+    }
+
+    .message.bot .bubble {
+      background: var(--bot-bubble);
+      box-shadow: 0 0 18px rgba(24, 255, 255, 0.35);
+    }
+
+    @keyframes messagePop {
+      0% { opacity: 0; transform: translateY(40px) scale(0.96); filter: blur(10px); }
+      70% { opacity: 1; transform: translateY(-6px) scale(1.02); }
+      100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+    }
+
+    .message.bot .bubble::after,
+    .message.user .bubble::after {
+      content: "";
+      position: absolute;
+      bottom: -12px;
+      width: 22px;
+      height: 22px;
+      backdrop-filter: inherit;
+      border: inherit;
+      border-left: none;
+      border-top: none;
+      transform: rotate(45deg);
+    }
+
+    .message.bot .bubble::after {
+      left: 32px;
+      background: inherit;
+      box-shadow: inherit;
+    }
+
+    .message.user .bubble::after {
+      right: 32px;
+      background: inherit;
+      box-shadow: inherit;
+    }
+
+    form {
+      display: grid;
+      grid-template-columns: 1fr 140px;
+      gap: 16px;
+      margin-top: 4px;
+    }
+
+    form input {
+      padding: 16px 20px;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(5, 9, 30, 0.42);
+      color: #fefbff;
+      letter-spacing: 0.08em;
+      font-size: 0.94rem;
+      transition: border 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+      box-shadow: inset 0 0 18px rgba(127, 95, 255, 0.16);
+    }
+
+    form input:focus {
+      outline: none;
+      border-color: rgba(24, 255, 255, 0.6);
+      box-shadow: 0 0 22px rgba(24, 255, 255, 0.38);
+      transform: translateY(-2px);
+    }
+
+    form button {
+      position: relative;
+      border: none;
+      border-radius: 18px;
+      font-size: 0.92rem;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      padding: 0 10px;
+      color: #050819;
+      font-weight: bold;
+      cursor: pointer;
+      overflow: hidden;
+      background: linear-gradient(120deg, rgba(24, 255, 255, 1), rgba(127, 95, 255, 1), rgba(255, 0, 170, 1));
+      background-size: 200% 200%;
+      animation: buttonGlow 2.4s ease-in-out infinite;
+      box-shadow: 0 16px 28px rgba(24, 255, 255, 0.35);
+    }
+
+    @keyframes buttonGlow {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+
+    form button::before {
+      content: "";
+      position: absolute;
+      top: -120%;
+      left: -45%;
+      width: 80%;
+      height: 320%;
+      background: rgba(255, 255, 255, 0.3);
+      transform: rotate(45deg);
+      transition: transform 0.6s cubic-bezier(0.4, 0, 0, 1), opacity 0.6s ease;
+    }
+
+    form button:hover::before {
+      transform: translateX(280%) rotate(45deg);
+      opacity: 0;
+    }
+
+    form button:active {
+      transform: translateY(2px);
+      box-shadow: 0 8px 18px rgba(24, 255, 255, 0.4);
+    }
+
+    .energy-orbs span {
+      position: absolute;
+      display: block;
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(24, 255, 255, 0.45) 0%, rgba(24, 255, 255, 0) 70%);
+      filter: blur(0px);
+      opacity: 0.48;
+      animation: floatOrb 12s ease-in-out infinite;
+      mix-blend-mode: screen;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .energy-orbs span:nth-child(odd) {
+      background: radial-gradient(circle, rgba(255, 0, 170, 0.45) 0%, rgba(255, 0, 170, 0) 70%);
+      animation-duration: 16s;
+      animation-delay: -3s;
+    }
+
+    @keyframes floatOrb {
+      0% { transform: translate3d(-60px, -40px, 0) scale(0.9); opacity: 0.3; }
+      50% { transform: translate3d(60px, 80px, 0) scale(1.2); opacity: 0.65; }
+      100% { transform: translate3d(-40px, -50px, 0) scale(0.8); opacity: 0.25; }
+    }
+
+    .scanline {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.08) 0,
+        rgba(255, 255, 255, 0.02) 2px,
+        transparent 2px,
+        transparent 6px
+      );
+      opacity: 0.05;
+      z-index: 3;
+      animation: scanline 7s linear infinite;
+    }
+
+    @keyframes scanline {
+      from { transform: translateY(-100%); }
+      to { transform: translateY(100%); }
+    }
+
+    .typing {
+      display: inline-block;
+      border-right: 2px solid rgba(255, 255, 255, 0.6);
+      animation: cursorBlink 0.85s steps(1) infinite;
+    }
+
+    @keyframes cursorBlink {
+      0%, 49% { border-color: rgba(255, 255, 255, 0.6); }
+      50%, 100% { border-color: transparent; }
+    }
+
+    .floating-shards span {
+      position: absolute;
+      width: 2px;
+      height: 38px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(24, 255, 255, 0.75), rgba(255, 255, 255, 0));
+      filter: blur(0.4px);
+      animation: shardFall 14s linear infinite;
+      opacity: 0.8;
+      z-index: 2;
+    }
+
+    @keyframes shardFall {
+      from { transform: translateY(-140%) translateX(-40px) rotate(12deg); opacity: 0; }
+      10% { opacity: 0.8; }
+      to { transform: translateY(140%) translateX(40px) rotate(-12deg); opacity: 0; }
+    }
+
+    @media (max-width: 720px) {
+      main {
+        padding: 20px 18px 24px;
+      }
+      form {
+        grid-template-columns: 1fr;
+      }
+      form button {
+        height: 52px;
+        letter-spacing: 0.2em;
+      }
+      .message {
+        grid-template-columns: 48px 1fr;
+      }
+      .message.user {
+        grid-template-columns: 1fr 48px;
+      }
+      .avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 16px;
+        letter-spacing: 0.22em;
+      }
+      .bubble {
+        padding: 14px 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="particleCanvas"></canvas>
+  <div class="aurora"></div>
+  <div class="energy-orbs"></div>
+  <div class="floating-shards"></div>
+  <main>
+    <header>
+      <div>
+        <h1>NEON CHAT REACTOR</h1>
+        <p>固定回复 · 绝对炫酷反馈通道</p>
+      </div>
+      <div class="status-badge">
+        <span class="status-dot"></span>
+        反应堆在线
+      </div>
+    </header>
+
+    <section class="chat-window" id="chatWindow" aria-live="polite">
+      <article class="message bot">
+        <div class="avatar">AI</div>
+        <div class="bubble">⚡️ 初始化完成，炫酷对话模拟器已上线。请向我发射你的第一条讯息！</div>
+      </article>
+    </section>
+
+    <form id="chatForm" autocomplete="off">
+      <input type="text" id="userInput" placeholder="输入你的讯息，触发炫酷反馈..." aria-label="发送讯息">
+      <button type="submit">发射</button>
+    </form>
+  </main>
+  <div class="scanline"></div>
+
+  <script>
+    const chatWindow = document.getElementById("chatWindow");
+    const chatForm = document.getElementById("chatForm");
+    const userInput = document.getElementById("userInput");
+    const energyOrbsWrapper = document.querySelector(".energy-orbs");
+    const shardsWrapper = document.querySelector(".floating-shards");
+    const particleCanvas = document.getElementById("particleCanvas");
+    const ctx = particleCanvas.getContext("2d");
+
+    const FIXED_REPLY = "⚡️超能AI：能量同步完成！你的讯息已触发霓虹反馈序列，准备迎接炫光回响！";
+    const SPECIAL_TRIGGER = "在吵架";
+    const SPECIAL_REPLY = "别吵架";
+
+    const ORB_COUNT = 12;
+    const SHARD_COUNT = 24;
+    const PARTICLE_COUNT = 160;
+    const particles = [];
+
+    function resizeCanvas() {
+      particleCanvas.width = window.innerWidth * window.devicePixelRatio;
+      particleCanvas.height = window.innerHeight * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+
+    function createParticles() {
+      particles.length = 0;
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        particles.push({
+          x: Math.random() * window.innerWidth,
+          y: Math.random() * window.innerHeight,
+          radius: Math.random() * 2 + 0.2,
+          speed: Math.random() * 0.8 + 0.2,
+          angle: Math.random() * Math.PI * 2,
+          hue: Math.random() * 180 + 160,
+        });
+      }
+    }
+
+    function drawParticles() {
+      ctx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
+      particles.forEach(particle => {
+        const vx = Math.cos(particle.angle) * particle.speed;
+        const vy = Math.sin(particle.angle) * particle.speed;
+        particle.x += vx;
+        particle.y += vy;
+        particle.angle += Math.random() * 0.06 - 0.03;
+
+        if (particle.x < -10) particle.x = window.innerWidth + 10;
+        if (particle.x > window.innerWidth + 10) particle.x = -10;
+        if (particle.y < -10) particle.y = window.innerHeight + 10;
+        if (particle.y > window.innerHeight + 10) particle.y = -10;
+
+        ctx.beginPath();
+        const gradient = ctx.createRadialGradient(particle.x, particle.y, 0, particle.x, particle.y, particle.radius * 6);
+        gradient.addColorStop(0, `hsla(${particle.hue}, 100%, 70%, 0.8)`);
+        gradient.addColorStop(1, `hsla(${particle.hue}, 100%, 50%, 0)`);
+        ctx.fillStyle = gradient;
+        ctx.arc(particle.x, particle.y, particle.radius * 6, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      requestAnimationFrame(drawParticles);
+    }
+
+    function spawnEnergyOrbs() {
+      for (let i = 0; i < ORB_COUNT; i++) {
+        const orb = document.createElement("span");
+        orb.style.left = Math.random() * 100 + "%";
+        orb.style.top = Math.random() * 100 + "%";
+        orb.style.animationDelay = `${Math.random() * -12}s`;
+        energyOrbsWrapper.appendChild(orb);
+      }
+    }
+
+    function spawnShards() {
+      for (let i = 0; i < SHARD_COUNT; i++) {
+        const shard = document.createElement("span");
+        shard.style.left = Math.random() * 100 + "%";
+        shard.style.animationDelay = `${Math.random() * -12}s`;
+        shard.style.animationDuration = `${12 + Math.random() * 6}s`;
+        shardsWrapper.appendChild(shard);
+      }
+    }
+
+    function appendMessage(text, sender = "user") {
+      const article = document.createElement("article");
+      article.classList.add("message", sender);
+
+      const avatar = document.createElement("div");
+      avatar.classList.add("avatar");
+      avatar.textContent = sender === "user" ? "ME" : "AI";
+
+      const bubble = document.createElement("div");
+      bubble.classList.add("bubble");
+
+      if (sender === "bot") {
+        bubble.innerHTML = `<span class="typing"></span>`;
+        typeText(bubble, text);
+      } else {
+        bubble.textContent = text;
+      }
+
+      if (sender === "user") {
+        article.appendChild(bubble);
+        article.appendChild(avatar);
+      } else {
+        article.appendChild(avatar);
+        article.appendChild(bubble);
+      }
+
+      chatWindow.appendChild(article);
+      chatWindow.scrollTo({ top: chatWindow.scrollHeight, behavior: "smooth" });
+    }
+
+    function typeText(container, text) {
+      const typingSpan = container.querySelector(".typing");
+      let index = 0;
+
+      function step() {
+        if (index <= text.length) {
+          typingSpan.textContent = text.slice(0, index);
+          index++;
+          const delay = Math.random() * 30 + 15;
+          setTimeout(step, delay);
+        } else {
+          typingSpan.classList.remove("typing");
+          typingSpan.style.borderRight = "none";
+        }
+      }
+      step();
+    }
+
+    chatForm.addEventListener("submit", event => {
+      event.preventDefault();
+      const message = userInput.value.trim();
+      if (!message) return;
+      appendMessage(message, "user");
+      userInput.value = "";
+
+      const delay = 500 + Math.random() * 800;
+      setTimeout(() => {
+        const reply = message === SPECIAL_TRIGGER ? SPECIAL_REPLY : FIXED_REPLY;
+        appendMessage(reply, "bot");
+      }, delay);
+    });
+
+    window.addEventListener("load", () => {
+      resizeCanvas();
+      createParticles();
+      spawnEnergyOrbs();
+      spawnShards();
+      drawParticles();
+    });
+
+    window.addEventListener("resize", () => {
+      resizeCanvas();
+      createParticles();
+    });
+  </script>
+</body>
+</html>
+
